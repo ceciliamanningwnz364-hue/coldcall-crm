@@ -1,21 +1,25 @@
+name: Build ColdCallPro IPA
 on:
 push:
-branches: [ "main", "master" ]
+branches:
+- main
+- master
 workflow_dispatch:
 jobs:
-build-ios-ipa:
-runs-on: macos-14 # Бесплатный облачный Mac от GitHub с установленным Xcode
+build:
+runs-on: macos-latest
 steps:
-- name: 1. Скачивание твоего Swift-кода
+- name: Checkout code
 uses: actions/checkout@v4
-- name: 2. Подготовка структуры проекта и включение 120Hz ProMotion (iPhone 14 Pro)
+- name: Prepare Xcode project
 run: |
 mkdir -p Sources
-# Перемещаем наш Swift-файл в папку исходников
-if [ -f "ColdCallLiquidCRM.swift" ]; then
-cp ColdCallLiquidCRM.swift Sources/ColdCallLiquidCRM.swift
+SWIFT_FILE=$(find . -maxdepth 2 -name "*.swift" | head -n 1)
+if [ -z "$SWIFT_FILE" ]; then
+echo "Swift file not found!"
+exit 1
 fi
-# Создаем Info.plist с принудительным анлоком 120Hz ProMotion для iPhone 14 Pro
+grep -v '^```' "$SWIFT_FILE" > Sources/ColdCallLiquidCRM.swift
 cat << 'EOF' > Info.plist
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -26,9 +30,9 @@ cat << 'EOF' > Info.plist
 <key>CFBundleDisplayName</key>
 <string>ColdCall CRM</string>
 <key>CFBundleExecutable</key>
-<string>\bm{(EXECUTABLE_NAME)</string>}
-\bm{<key>CFBundleIdentifier</key>}
-\bm{<string>}(PRODUCT_BUNDLE_IDENTIFIER)</string>
+<string>￼
+￼
+￼(PRODUCT_BUNDLE_IDENTIFIER)</string>
 <key>CFBundleInfoDictionaryVersion</key>
 <string>6.0</string>
 <key>CFBundleName</key>
@@ -49,10 +53,7 @@ cat << 'EOF' > Info.plist
 <false/>
 </dict>
 <key>UILaunchScreen</key>
-<dict>
-<key>UIColorName</key>
-<string>LaunchBackground</string>
-</dict>
+<dict/>
 <key>UISupportedInterfaceOrientations</key>
 <array>
 <string>UIInterfaceOrientationPortrait</string>
@@ -62,7 +63,6 @@ cat << 'EOF' > Info.plist
 </dict>
 </plist>
 EOF
-# Создаем конфигурацию XcodeGen для автоматической генерации проекта Xcode
 cat << 'EOF' > project.yml
 name: ColdCallPro
 options:
@@ -85,13 +85,13 @@ SWIFT_VERSION: "5.9"
 TARGETED_DEVICE_FAMILY: "1"
 GENERATE_INFOPLIST_FILE: NO
 EOF
-- name: 3. Генерация Xcode-проекта через XcodeGen
+- name: Generate Xcode Project
 run: |
 if ! command -v xcodegen &> /dev/null; then
 brew install xcodegen
 fi
 xcodegen generate
-- name: 4. Компиляция нативного приложения под процессор Apple A16 Bionic (arm64)
+- name: Compile iOS App (arm64)
 run: |
 xcodebuild build 
 -project ColdCallPro.xcodeproj 
@@ -102,12 +102,12 @@ xcodebuild build
 CODE_SIGN_IDENTITY="" 
 CODE_SIGNING_REQUIRED=NO 
 CODE_SIGNING_ALLOWED=NO
-- name: 5. Упаковка в готовый файл ColdCallPro.ipa
+- name: Package IPA
 run: |
 mkdir -p Payload
 cp -r build_output/Build/Products/Release-iphoneos/ColdCallPro.app Payload/
 zip -r9 ColdCallPro.ipa Payload
-- name: 6. Выгрузка готового .ipa файла для скачивания на Windows
+- name: Upload IPA Artifact
 uses: actions/upload-artifact@v4
 with:
 name: ColdCallPro-iPhone14Pro-IPA
