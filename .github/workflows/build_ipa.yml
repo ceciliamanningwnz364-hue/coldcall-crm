@@ -1,115 +1,33 @@
-name: Build ColdCallPro IPA
-on:
-push:
-branches:
-- main
-- master
-workflow_dispatch:
-jobs:
-build:
-runs-on: macos-latest
-steps:
-- name: Checkout code
-uses: actions/checkout@v4
-- name: Prepare Xcode project
-run: |
-mkdir -p Sources
-SWIFT_FILE=$(find . -maxdepth 2 -name "*.swift" | head -n 1)
-if [ -z "$SWIFT_FILE" ]; then
-echo "Swift file not found!"
-exit 1
-fi
-grep -v '^```' "$SWIFT_FILE" > Sources/ColdCallLiquidCRM.swift
-cat << 'EOF' > Info.plist
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-<key>CFBundleDevelopmentRegion</key>
-<string>ru</string>
-<key>CFBundleDisplayName</key>
-<string>ColdCall CRM</string>
-<key>CFBundleExecutable</key>
-<string>￼
-￼
-￼(PRODUCT_BUNDLE_IDENTIFIER)</string>
-<key>CFBundleInfoDictionaryVersion</key>
-<string>6.0</string>
-<key>CFBundleName</key>
-<string>$(PRODUCT_NAME)</string>
-<key>CFBundlePackageType</key>
-<string>APPL</string>
-<key>CFBundleShortVersionString</key>
-<string>1.0</string>
-<key>CFBundleVersion</key>
-<string>1</string>
-<key>LSRequiresIPhoneOS</key>
-<true/>
-<key>CADisableMinimumFrameDurationOnPhone</key>
-<true/>
-<key>UIApplicationSceneManifest</key>
-<dict>
-<key>UIApplicationSupportsMultipleScenes</key>
-<false/>
-</dict>
-<key>UILaunchScreen</key>
-<dict/>
-<key>UISupportedInterfaceOrientations</key>
-<array>
-<string>UIInterfaceOrientationPortrait</string>
-</array>
-<key>UIUserInterfaceStyle</key>
-<string>Dark</string>
-</dict>
-</plist>
-EOF
-cat << 'EOF' > project.yml
-name: ColdCallPro
-options:
-bundleIdPrefix: com.personal
-deploymentTarget:
-iOS: "16.0"
-targets:
-ColdCallPro:
-type: application
-platform: iOS
-sources:
-- Sources
-info:
-path: Info.plist
-settings:
-PRODUCT_BUNDLE_IDENTIFIER: com.personal.coldcallpro.crm
-MARKETING_VERSION: "1.0.0"
-CURRENT_PROJECT_VERSION: "1"
-SWIFT_VERSION: "5.9"
-TARGETED_DEVICE_FAMILY: "1"
-GENERATE_INFOPLIST_FILE: NO
-EOF
-- name: Generate Xcode Project
-run: |
-if ! command -v xcodegen &> /dev/null; then
-brew install xcodegen
-fi
-xcodegen generate
-- name: Compile iOS App (arm64)
-run: |
-xcodebuild build 
--project ColdCallPro.xcodeproj 
--scheme ColdCallPro 
--configuration Release 
--sdk iphoneos 
--derivedDataPath build_output 
-CODE_SIGN_IDENTITY="" 
-CODE_SIGNING_REQUIRED=NO 
-CODE_SIGNING_ALLOWED=NO
-- name: Package IPA
-run: |
-mkdir -p Payload
-cp -r build_output/Build/Products/Release-iphoneos/ColdCallPro.app Payload/
-zip -r9 ColdCallPro.ipa Payload
-- name: Upload IPA Artifact
-uses: actions/upload-artifact@v4
-with:
-name: ColdCallPro-iPhone14Pro-IPA
-path: ColdCallPro.ipa
-if-no-files-found: error
+{
+"name": "Build ColdCallPro IPA",
+"on": {
+"push": {
+"branches": ["main", "master"]
+},
+"workflow_dispatch": {}
+},
+"jobs": {
+"build": {
+"runs-on": "macos-latest",
+"steps": [
+{
+"name": "Checkout code",
+"uses": "actions/checkout@v4"
+},
+{
+"name": "Build and Package IPA",
+"run": "mkdir -p Sources && SWIFT_FILE=(find . -maxdepth 2 -name '*.swift' \vert{} head -n 1) && if [ -z \"$SWIFT_FILE\" ]; then echo 'Swift file not found!'; exit 1; fi && grep -v '^```' \"$SWIFT_FILE\" > Sources/ColdCallLiquidCRM.swift && printf '<?xml version=\"1.0\" encoding=\"UTF-8\"?><!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\"><plist version=\"1.0\"><dict><key>CFBundleDevelopmentRegion</key><string>ru</string><key>CFBundleDisplayName</key><string>ColdCall CRM</string><key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string><key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string><key>CFBundleInfoDictionaryVersion</key><string>6.0</string><key>CFBundleName</key><string>(PRODUCT_NAME)</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>1.0</string><key>CFBundleVersion</key><string>1</string><key>LSRequiresIPhoneOS</key><true/><key>CADisableMinimumFrameDurationOnPhone</key><true/><key>UIApplicationSceneManifest</key><dict><key>UIApplicationSupportsMultipleScenes</key><false/></dict><key>UILaunchScreen</key><dict/><key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array><key>UIUserInterfaceStyle</key><string>Dark</string></dict></plist>' > Info.plist && printf '{"name":"ColdCallPro","options":{"bundleIdPrefix":"com.personal","deploymentTarget":{"iOS":"16.0"}},"targets":{"ColdCallPro":{"type":"application","platform":"iOS","sources":["Sources"],"info":{"path":"Info.plist"},"settings":{"PRODUCT_BUNDLE_IDENTIFIER":"com.personal.coldcallpro.crm","MARKETING_VERSION":"1.0.0","CURRENT_PROJECT_VERSION":"1","SWIFT_VERSION":"5.9","TARGETED_DEVICE_FAMILY":"1","GENERATE_INFOPLIST_FILE":false}}}}' > project.yml && (command -v xcodegen >/dev/null 2>&1 || brew install xcodegen) && xcodegen generate && xcodebuild build -project ColdCallPro.xcodeproj -scheme ColdCallPro -configuration Release -sdk iphoneos -derivedDataPath build_output CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO && mkdir -p Payload && cp -r build_output/Build/Products/Release-iphoneos/ColdCallPro.app Payload/ && zip -r9 ColdCallPro.ipa Payload"
+},
+{
+"name": "Upload IPA Artifact",
+"uses": "actions/upload-artifact@v4",
+"with": {
+"name": "ColdCallPro-iPhone14Pro-IPA",
+"path": "ColdCallPro.ipa",
+"if-no-files-found": "error"
+}
+}
+]
+}
+}
+}
